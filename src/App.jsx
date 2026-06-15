@@ -10,7 +10,7 @@ function App() {
   const [precio, setPrecio] = useState("")
   const [categoria, setCategoria] = useState("")
   const [mensaje, setMensaje] = useState("")
-  const [vista, setVista] = useState("login")
+  const [editandoId, setEditandoId] = useState(null)
 
   useEffect(() => {
     cargarProductos()
@@ -38,7 +38,6 @@ function App() {
       .then(data => {
         if (data.access_token) {
           setToken(data.access_token)
-          setVista("productos")
           setMensaje("✓ Sesión iniciada")
         } else {
           setMensaje("Usuario o contraseña incorrectos")
@@ -46,14 +45,27 @@ function App() {
       })
   }
 
-  function crearProducto() {
+  function cerrarSesion() {
+    setToken(null)
+    setMensaje("")
+    setUsername("")
+    setPassword("")
+  }
+
+  function guardarProducto() {
     if (!nombre || !precio) {
       setMensaje("Completa el nombre y precio")
       return
     }
 
-    fetch("http://127.0.0.1:8000/productos", {
-      method: "POST",
+    const url = editandoId
+      ? `http://127.0.0.1:8000/productos/${editandoId}`
+      : "http://127.0.0.1:8000/productos"
+
+    const method = editandoId ? "PUT" : "POST"
+
+    fetch(url, {
+      method: method,
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`
@@ -67,23 +79,33 @@ function App() {
       .then(res => res.json())
       .then(data => {
         if (data.producto) {
-          setMensaje("✓ Producto creado")
+          setMensaje(editandoId ? "✓ Producto actualizado" : "✓ Producto creado")
           setNombre("")
           setPrecio("")
           setCategoria("")
+          setEditandoId(null)
           cargarProductos()
-        } else {
-          setMensaje("Error al crear producto")
         }
       })
   }
 
-  function cerrarSesion() {
-    setToken(null)
-    setVista("login")
-    setMensaje("")
-    setUsername("")
-    setPassword("")
+  function eliminarProducto(id) {
+    fetch(`http://127.0.0.1:8000/productos/${id}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(() => {
+        setMensaje("✓ Producto eliminado")
+        cargarProductos()
+      })
+  }
+
+  function seleccionarEditar(producto) {
+    setNombre(producto.nombre)
+    setPrecio(producto.precio)
+    setCategoria(producto.categoria || "")
+    setEditandoId(producto.id)
   }
 
   return (
@@ -144,7 +166,7 @@ function App() {
             </button>
           </div>
 
-          <h2>Agregar producto</h2>
+          <h2>{editandoId ? "✏️ Editar producto" : "Agregar producto"}</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1rem" }}>
             <input
               placeholder="Nombre del producto"
@@ -166,7 +188,7 @@ function App() {
               style={{ padding: "0.5rem", borderRadius: "6px", border: "1px solid #FF6B00" }}
             />
             <button
-              onClick={crearProducto}
+              onClick={guardarProducto}
               style={{
                 padding: "0.5rem",
                 backgroundColor: "#FF6B00",
@@ -177,8 +199,23 @@ function App() {
                 fontWeight: "bold"
               }}
             >
-              Crear producto
+              {editandoId ? "Actualizar producto" : "Crear producto"}
             </button>
+            {editandoId && (
+              <button
+                onClick={() => { setEditandoId(null); setNombre(""); setPrecio(""); setCategoria("") }}
+                style={{
+                  padding: "0.5rem",
+                  backgroundColor: "#666",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                Cancelar edición
+              </button>
+            )}
             {mensaje && <p style={{ color: "#FF6B00" }}>{mensaje}</p>}
           </div>
 
@@ -198,6 +235,34 @@ function App() {
                 <h3 style={{ color: "#FF6B00" }}>{producto.nombre}</h3>
                 <p>Categoría: {producto.categoria}</p>
                 <p><strong>${producto.precio.toLocaleString()}</strong></p>
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                  <button
+                    onClick={() => eliminarProducto(producto.id)}
+                    style={{
+                      padding: "0.4rem 0.8rem",
+                      backgroundColor: "#cc0000",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    🗑️ Eliminar
+                  </button>
+                  <button
+                    onClick={() => seleccionarEditar(producto)}
+                    style={{
+                      padding: "0.4rem 0.8rem",
+                      backgroundColor: "#333",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    ✏️ Editar
+                  </button>
+                </div>
               </div>
             ))
           )}
